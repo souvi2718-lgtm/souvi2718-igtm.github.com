@@ -1,204 +1,179 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>بحث عن رقم قرب موقعي</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h2 { color: #1976d2; margin: 0 0 10px 0; }
-        .search-box { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
-        input { flex: 1; min-width: 200px; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; }
-        button { padding: 12px 18px; background: #1976d2; color: white; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
-        button:hover:not(:disabled) { background: #1565c0; }
-        .btn-gps { background: #388e3c; }
-        .btn-gps:hover { background: #2e7d32; }
-        #map { height: 400px; width: 100%; border-radius: 8px; margin: 15px 0; background: #e0e0e0; }
-        .result { border: 1px solid #eee; padding: 12px; margin: 8px 0; border-radius: 8px; background: #fafafa; cursor: pointer; }
-        .info { color: #666; font-size: 14px; margin-bottom: 10px; }
-        .distance { color: #d32f2f; font-weight: bold; }
-        .status { color: #388e3c; font-size: 14px; margin: 5px 0; min-height: 20px; }
-        .error { color: #d32f2f; }
-        .map-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.95); padding: 20px; border-radius: 8px; text-align: center; z-index: 1; }
-        .map-container { position: relative; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>خريطة الأرقام الذكية</title>
+
+<style>
+body {font-family: Tahoma; background:#f5f5f5; padding:15px;}
+.container {max-width:800px; margin:auto; background:#fff; padding:20px; border-radius:12px;}
+input,button {padding:10px; margin:5px; border-radius:8px; border:1px solid #ccc;}
+button {background:#1976d2; color:#fff; cursor:pointer;}
+#map {height:400px; margin-top:10px; border-radius:10px;}
+.result {background:#fafafa; padding:10px; margin:5px 0; border-radius:8px;}
+.distance {color:red; font-weight:bold;}
+.status {margin:5px; font-size:14px;}
+</style>
 </head>
+
 <body>
-    <div class="container">
-        <h2>بحث عن رقم هاتف قرب موقعك</h2>
-        <div class="info" id="locationInfo">يجب تحديد موقعك أولاً | نطاق البحث: 10 كم</div>
-        <div class="status" id="gpsStatus"></div>
-        
-        <div class="search-box">
-            <input type="text" id="phoneInput" placeholder="أدخل رقم الهاتف" disabled>
-            <button id="searchBtn" onclick="searchPhone()" disabled>بحث</button>
-            <button class="btn-gps" onclick="getCurrentLocation()">📍 حدد موقعي الحالي</button>
-        </div>
 
-        <div class="map-container">
-            <div id="map"></div>
-            <div class="map-overlay" id="mapOverlay">
-                <b>الخطوة 1:</b> اضغط "حدد موقعي الحالي"<br>
-                <b>الخطوة 2:</b> وافق على إذن الموقع<br>
-                <b>الخطوة 3:</b> ابحث عن الرقم
-            </div>
-        </div>
-        <div id="results"></div>
-    </div>
+<div class="container">
+<h2>📍 خريطة الأرقام الذكية</h2>
 
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap" async defer></script>
+<!-- إضافة -->
+<input type="text" id="phone" placeholder="رقم الهاتف">
+<input type="text" id="desc" placeholder="الوصف">
+<button onclick="addPhone()">➕ إضافة مع موقعي</button>
 
-    <script>
-        // 1. Firebase - حط معلوماتك
-        const firebaseConfig = {
-            apiKey: "YOUR_FIREBASE_API_KEY",
-            authDomain: "YOUR_PROJECT.firebaseapp.com",
-            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-            projectId: "YOUR_PROJECT",
-            storageBucket: "YOUR_PROJECT.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abcdef"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+<hr>
 
-        // 2. متغيرات بدون موقع افتراضي نهائياً
-        let TARGET_LAT = null;
-        let TARGET_LNG = null;
-        const RADIUS_KM = 10;
-        let map, mainMarker;
-        let markers = [];
-        let locationSet = false;
+<!-- الموقع -->
+<button onclick="getLocation()">📍 تحديد موقعي</button>
+<div class="status" id="status"></div>
 
-        // 3. الخريطة تبدأ فاضية
-        function initMap() {
-            map = new google.maps.Map(document.getElementById("map"), {
-                center: { lat: 0, lng: 0 },
-                zoom: 2,
-                mapTypeId: 'roadmap',
-                disableDefaultUI: true,
-                draggable: false,
-                scrollwheel: false
-            });
-        }
+<!-- البحث -->
+<input type="text" id="search" placeholder="ابحث عن رقم أو وصف">
+<button onclick="search()">🔍 بحث</button>
 
-        function updateMainMarker() {
-            if (mainMarker) mainMarker.setMap(null);
-            mainMarker = new google.maps.Marker({
-                position: { lat: TARGET_LAT, lng: TARGET_LNG },
-                map: map,
-                title: "موقعي",
-                icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
-            });
-            map.setCenter({ lat: TARGET_LAT, lng: TARGET_LNG });
-            map.setZoom(14);
-            map.setOptions({ disableDefaultUI: false, draggable: true, scrollwheel: true });
-            
-            document.getElementById('locationInfo').innerHTML = 
-                `موقعك: ${TARGET_LAT.toFixed(6)}, ${TARGET_LNG.toFixed(6)} | نطاق البحث: ${RADIUS_KM} كم`;
-            document.getElementById('mapOverlay').style.display = 'none';
-            
-            locationSet = true;
-            document.getElementById('phoneInput').disabled = false;
-            document.getElementById('searchBtn').disabled = false;
-        }
+<div id="map"></div>
+<div id="results"></div>
+</div>
 
-        // 4. GPS فقط
-        function getCurrentLocation() {
-            const status = document.getElementById('gpsStatus');
-            if (!navigator.geolocation) {
-                status.innerHTML = '<span class="error">جهازك لا يدعم GPS</span>';
-                return;
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+<!-- Google Maps -->
+<script src="https://maps.googleapis.com/maps/api/js?key=PUT_mujz5ur4IwsFMbk2grA6T_81TFw&callback=initMap" async defer></script>
+
+<script>
+// 🔥 Firebase config
+const firebaseConfig = {
+    apiKey: "AIzaSyA49f-ukAc09qCW97P5WNlTw-smlJhXCT4",
+    authDomain: "atomic-parity-485123-p9.firebaseapp.com",
+    databaseURL: "https://atomic-parity-485123-p9-default-rtdb.firebaseio.com",
+    projectId: "atomic-parity-485123-p9",
+    storageBucket: "atomic-parity-485123-p9.firebasestorage.app",
+    messagingSenderId: "639339092171",
+    appId: "1:639339092171:android:0b666b91c6927a21a9234e"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let map, myLat, myLng;
+let markers = [];
+
+// 🗺️ الخريطة
+function initMap() {
+    map = new google.maps.Map(document.getElementById("map"), {
+        center: {lat: 18.08, lng: -15.97},
+        zoom: 12
+    });
+}
+
+// 📍 تحديد الموقع
+function getLocation() {
+    const status = document.getElementById("status");
+
+    navigator.geolocation.getCurrentPosition(pos => {
+        myLat = pos.coords.latitude;
+        myLng = pos.coords.longitude;
+
+        new google.maps.Marker({
+            position: {lat: myLat, lng: myLng},
+            map: map,
+            title: "موقعي"
+        });
+
+        map.setCenter({lat: myLat, lng: myLng});
+        status.innerHTML = "✅ تم تحديد موقعك";
+    }, () => {
+        status.innerHTML = "❌ فشل تحديد الموقع";
+    });
+}
+
+// ➕ إضافة رقم
+function addPhone() {
+    const phone = document.getElementById('phone').value.trim();
+    const desc = document.getElementById('desc').value.trim();
+
+    if (!phone) return alert("أدخل الرقم");
+    if (!myLat) return alert("حدد موقعك أولاً");
+
+    db.ref('phones').push({
+        phone: phone,
+        description: desc,
+        lat: myLat,
+        lng: myLng,
+        createdAt: Date.now()
+    });
+
+    alert("✅ تم الحفظ");
+}
+
+// 📏 حساب المسافة
+function distance(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2-lat1)*Math.PI/180;
+    const dLon = (lon2-lon1)*Math.PI/180;
+
+    const a = Math.sin(dLat/2)**2 +
+              Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+              Math.sin(dLon/2)**2;
+
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// 🔍 البحث الذكي
+function search() {
+    const val = document.getElementById('search').value.toLowerCase();
+    const results = document.getElementById('results');
+
+    results.innerHTML = "";
+    markers.forEach(m => m.setMap(null));
+    markers = [];
+
+    db.ref('phones').once('value', snap => {
+        snap.forEach(child => {
+            const d = child.val();
+
+            const phone = (d.phone || "").toLowerCase();
+            const desc = (d.description || "").toLowerCase();
+
+            if (phone.includes(val) || desc.includes(val)) {
+
+                const dist = distance(myLat, myLng, d.lat, d.lng);
+
+                if (dist <= 10) {
+
+                    const marker = new google.maps.Marker({
+                        position: {lat: d.lat, lng: d.lng},
+                        map: map
+                    });
+
+                    const info = new google.maps.InfoWindow({
+                        content: `<b>${d.phone}</b><br>${d.description}<br>${dist.toFixed(2)} كم`
+                    });
+
+                    marker.addListener('click', () => info.open(map, marker));
+                    markers.push(marker);
+
+                    results.innerHTML += `
+                        <div class="result">
+                            📞 ${d.phone}<br>
+                            📝 ${d.description}<br>
+                            <span class="distance">📏 ${dist.toFixed(2)} كم</span>
+                        </div>
+                    `;
+                }
             }
-            
-            status.innerHTML = 'جاري تحديد موقعك... وافق على الإذن';
-            status.className = 'status';
-            
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    TARGET_LAT = position.coords.latitude;
-                    TARGET_LNG = position.coords.longitude;
-                    updateMainMarker();
-                    status.innerHTML = 'تم تحديد موقعك ✓ يمكنك البحث الآن';
-                    setTimeout(() => status.innerHTML = '', 3000);
-                },
-                (error) => {
-                    let msg = 'فشل تحديد الموقع';
-                    if (error.code === 1) msg = 'رفضت إذن الموقع. فعّله من إعدادات المتصفح';
-                    if (error.code === 2) msg = 'GPS غير متاح';
-                    if (error.code === 3) msg = 'انتهت المهلة';
-                    status.innerHTML = `<span class="error">${msg}</span>`;
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
-        }
+        });
+    });
+}
+</script>
 
-        // 5. حساب المسافة
-        function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        }
-
-        // 6. البحث - يشتغل بس لو GPS شغال
-        function searchPhone() {
-            if (!locationSet) {
-                alert('لازم تحدد موقعك أول بالضغط على "حدد موقعي الحالي"');
-                return;
-            }
-            
-            const phone = document.getElementById('phoneInput').value.trim();
-            if (!phone) return alert('أدخل رقم الهاتف');
-            
-            document.getElementById('results').innerHTML = 'جاري البحث...';
-            markers.forEach(m => m.setMap(null));
-            markers = [];
-
-            db.ref('phones').once('value', snapshot => {
-                const resultsDiv = document.getElementById('results');
-                resultsDiv.innerHTML = '';
-                let found = 0;
-
-                snapshot.forEach(child => {
-                    const data = child.val();
-                    if (data.phone.includes(phone)) {
-                        const distance = getDistance(TARGET_LAT, TARGET_LNG, data.lat, data.lng);
-                        
-                        if (distance <= RADIUS_KM) {
-                            found++;
-                            const marker = new google.maps.Marker({
-                                position: { lat: data.lat, lng: data.lng },
-                                map: map,
-                                title: data.phone
-                            });
-                            const infowindow = new google.maps.InfoWindow({
-                                content: `<b>${data.phone}</b><br>${data.description}<br>المسافة: ${distance.toFixed(2)} كم`
-                            });
-                            marker.addListener('click', () => infowindow.open(map, marker));
-                            markers.push(marker);
-
-                            resultsDiv.innerHTML += `
-                                <div class="result" onclick="map.setCenter({lat:${data.lat},lng:${data.lng}}); map.setZoom(16);">
-                                    <b>الرقم:</b> ${data.phone}<br>
-                                    <b>الوصف:</b> ${data.description}<br>
-                                    <span class="distance">المسافة: ${distance.toFixed(2)} كم</span>
-                                </div>
-                            `;
-                        }
-                    }
-                });
-
-                if (found === 0) resultsDiv.innerHTML = 'لا توجد نتائج ضمن 10 كم من موقعك';
-            });
-        }
-    </script>
 </body>
 </html>
