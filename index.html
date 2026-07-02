@@ -48,18 +48,23 @@ button {background:#1976d2; color:#fff; cursor:pointer;}
 <!-- Google Maps -->
 <script src="https://maps.googleapis.com/maps/api/js?key=PUT_mujz5ur4IwsFMbk2grA6T_81TFw&callback=initMap" async defer></script>
 
-<script>
-// 🔥 Firebase config
+// Firebase Configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyA49f-ukAc09qCW97P5WNlTw-smlJhXCT4",
+    apiKey: "AIzaSyBUAlqzuN2AXnhte7wuj7ku68kO2qCoeAE",
     authDomain: "atomic-parity-485123-p9.firebaseapp.com",
     databaseURL: "https://atomic-parity-485123-p9-default-rtdb.firebaseio.com",
     projectId: "atomic-parity-485123-p9",
     storageBucket: "atomic-parity-485123-p9.firebasestorage.app",
     messagingSenderId: "639339092171",
-    appId: "1:639339092171:android:0b666b91c6927a21a9234e"
+    appId: "1:639339092171:web:0f7f7f0dc1bf4097a9234e",
+    measurementId: "G-SJ5BRK6GFY"
 };
 
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+
+// Realtime Database
+const db = firebase.database();
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
